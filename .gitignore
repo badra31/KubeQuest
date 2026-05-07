@@ -1,0 +1,34 @@
+# Terraform — ne jamais committer l'état ou les secrets
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+
+# Variables sensibles
+*.env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PHP/Laravel
+vendor/
+node_modules/
+storage/logs/*.log
+
+
+
+/public/hot
+/public/storage
+/storage/*.key
+.env.backup
+.phpunit.result.cache
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/.idea
+/.vscode

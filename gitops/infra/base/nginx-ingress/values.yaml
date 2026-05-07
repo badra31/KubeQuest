@@ -1,0 +1,44 @@
+controller:
+  # Run the ingress controller on the dedicated ingress node
+  nodeSelector:
+    kubernetes.io/hostname: ingress
+  tolerations:
+    - key: node-role
+      operator: Equal
+      value: ingress
+      effect: NoSchedule
+
+  # Expose as NodePort so the ingress VM's IP is the entry point
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443
+
+  # Resource limits — keeps the controller from starving the node
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+  config:
+    # Log format for Loki ingestion
+    log-format-upstream: >
+      $remote_addr - $remote_user [$time_local] "$request"
+      $status $body_bytes_sent "$http_referer" "$http_user_agent"
+      $request_length $request_time [$proxy_upstream_name] [$proxy_alternative_upstream_name]
+      $upstream_addr $upstream_response_length $upstream_response_time $upstream_status $req_id
+
+  replicaCount: 2
+
+  podAnnotations:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: kube-quest
