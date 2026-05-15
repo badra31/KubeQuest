@@ -16,27 +16,15 @@ variable "public_key_path" {
 }
 
 variable "instance_type_kube" {
-  description = "Instance type for Kubernetes nodes"
+  description = "Instance type for Kubernetes nodes (t3.small = 2 CPUs, 2GB RAM — minimum requis par kubeadm)"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.small"
 }
 
-variable "instance_type_ingress" {
-  description = "Instance type for ingress node"
+variable "instance_type_small" {
+  description = "Instance type for ingress and monitoring (t2.micro = free tier)"
   type        = string
   default     = "t2.micro"
-}
-
-variable "instance_type_monitoring" {
-  description = "Instance type for monitoring node"
-  type        = string
-  default     = "t2.micro"
-}
-
-variable "ami_id" {
-  description = "Ubuntu 22.04 LTS AMI (update per region)"
-  type        = string
-  default     = "ami-09b10fca4b0ed1bf4" # eu-west-1 Ubuntu 22.04
 }
 
 variable "project_name" {
