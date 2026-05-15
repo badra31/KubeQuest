@@ -1,0 +1,11 @@
+apiVersion: v2
+name: sample-app
+description: Laravel PHP application with PostgreSQL
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: "13.x.x"
+    repository: https://charts.bitnami.com/bitnami

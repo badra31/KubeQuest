@@ -1,0 +1,47 @@
+# Nombre de replicas (pods) de l'application
+replicaCount: 2
+
+# Image Docker de l'application
+image:
+  repository: your-dockerhub-username/kube-quest-app
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Configuration de l'application Laravel
+app:
+  name: kube-quest
+  env: production
+  debug: "false"
+  key: "base64:DJYTvaRkEZ/YcQsX3TMpB0iCjgme2rhlIOus9A1hnj4="
+  url: "http://kube-quest.local"
+
+# Configuration PostgreSQL
+postgresql:
+  auth:
+    username: app_user
+    password: app_password
+    database: app_database
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+# Limites de ressources — bonne pratique Kubernetes obligatoire
+resources:
+  requests:
+    cpu: 100m      # 0.1 CPU minimum garanti
+    memory: 128Mi  # 128 MB RAM minimum garanti
+  limits:
+    cpu: 500m      # 0.5 CPU maximum autorisé
+    memory: 256Mi  # 256 MB RAM maximum autorisé
+
+# Service — comment exposer l'appli dans le cluster
+service:
+  type: ClusterIP
+  port: 80
+
+# Ingress — comment exposer l'appli vers l'extérieur
+ingress:
+  enabled: true
+  className: nginx
+  host: kube-quest.local
