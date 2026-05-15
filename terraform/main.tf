@@ -12,6 +12,25 @@ provider "aws" {
   region = var.aws_region
 }
 
+# ── AMI dynamique ─────────────────────────────────────────────────────────────
+# Récupère automatiquement la dernière Ubuntu 22.04 LTS officielle de Canonical
+# Avantage : pas besoin de mettre à jour l'ID manuellement selon la région
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical (éditeur officiel d'Ubuntu)
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # ── Key pair ──────────────────────────────────────────────────────────────────
 
 resource "aws_key_pair" "kube_quest" {
@@ -81,6 +100,13 @@ resource "aws_security_group" "kube_nodes" {
     description = "Kubernetes API"
     from_port   = 6443
     to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    description = "NodePort services"
+    from_port   = 30000
+    to_port     = 32767
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -180,16 +206,35 @@ resource "aws_security_group" "monitoring_node" {
 # ── EC2 instances ─────────────────────────────────────────────────────────────
 
 resource "aws_instance" "kube_1" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type_kube
   key_name               = aws_key_pair.kube_quest.key_name
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.kube_nodes.id]
-  user_data              = file("${path.module}/user_data/common.sh")
+
+  # IMDSv2 — empêche certaines attaques de récupérer les credentials AWS depuis un pod
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+    http_endpoint               = "enabled"
+  }
+
+  # user_data = script exécuté au 1er démarrage de la VM
+  # Il installe Docker + kubeadm + kubelet + kubectl (via common.sh)
+  # et définit le nom de la machine (hostname)
+  user_data = base64encode(join("\n", [
+    file("${path.module}/user_data/common.sh"),
+    "hostnamectl set-hostname kube-1"
+  ]))
 
   root_block_device {
-    volume_size = 8
+    volume_size = 15
     volume_type = "gp3"
+  }
+
+  # ignore_changes sur ami : évite de recréer la VM si Ubuntu publie une nouvelle image
+  lifecycle {
+    ignore_changes = [ami, user_data]
   }
 
   tags = merge(local.common_tags, {
@@ -199,16 +244,30 @@ resource "aws_instance" "kube_1" {
 }
 
 resource "aws_instance" "kube_2" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type_kube
   key_name               = aws_key_pair.kube_quest.key_name
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.kube_nodes.id]
-  user_data              = file("${path.module}/user_data/common.sh")
+
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+    http_endpoint               = "enabled"
+  }
+
+  user_data = base64encode(join("\n", [
+    file("${path.module}/user_data/common.sh"),
+    "hostnamectl set-hostname kube-2"
+  ]))
 
   root_block_device {
-    volume_size = 8
+    volume_size = 15
     volume_type = "gp3"
+  }
+
+  lifecycle {
+    ignore_changes = [ami, user_data]
   }
 
   tags = merge(local.common_tags, {
@@ -218,16 +277,30 @@ resource "aws_instance" "kube_2" {
 }
 
 resource "aws_instance" "ingress" {
-  ami                    = var.ami_id
-  instance_type          = var.instance_type_ingress
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type_small
   key_name               = aws_key_pair.kube_quest.key_name
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.ingress_node.id]
-  user_data              = file("${path.module}/user_data/common.sh")
+
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+    http_endpoint               = "enabled"
+  }
+
+  user_data = base64encode(join("\n", [
+    file("${path.module}/user_data/common.sh"),
+    "hostnamectl set-hostname ingress"
+  ]))
 
   root_block_device {
-    volume_size = 8
+    volume_size = 10
     volume_type = "gp3"
+  }
+
+  lifecycle {
+    ignore_changes = [ami, user_data]
   }
 
   tags = merge(local.common_tags, {
@@ -237,16 +310,30 @@ resource "aws_instance" "ingress" {
 }
 
 resource "aws_instance" "monitoring" {
-  ami                    = var.ami_id
-  instance_type          = var.instance_type_monitoring
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type_small
   key_name               = aws_key_pair.kube_quest.key_name
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.monitoring_node.id]
-  user_data              = file("${path.module}/user_data/common.sh")
+
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+    http_endpoint               = "enabled"
+  }
+
+  user_data = base64encode(join("\n", [
+    file("${path.module}/user_data/common.sh"),
+    "hostnamectl set-hostname monitoring"
+  ]))
 
   root_block_device {
-    volume_size = 8
+    volume_size = 20
     volume_type = "gp3"
+  }
+
+  lifecycle {
+    ignore_changes = [ami, user_data]
   }
 
   tags = merge(local.common_tags, {
