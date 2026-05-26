@@ -16,6 +16,9 @@ Thumbs.db
 # PHP/Laravel
 vendor/
 node_modules/
+
+# Helm — dépendances binaires (comme node_modules, à regénérer avec helm dependency update)
+helm/*/charts/
 storage/logs/*.log
 
 
