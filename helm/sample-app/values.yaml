@@ -3,9 +3,9 @@ replicaCount: 2
 
 # Image Docker de l'application
 image:
-  repository: your-dockerhub-username/kube-quest-app
+  repository: ghcr.io/badra31/kube-quest-app
   tag: "latest"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # Configuration de l'application Laravel
 app:
@@ -25,6 +25,10 @@ postgresql:
     persistence:
       enabled: true
       size: 2Gi
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
+    podSecurityContext:
+      fsGroup: 1001
 
 # Limites de ressources — bonne pratique Kubernetes obligatoire
 resources:
@@ -45,3 +49,16 @@ ingress:
   enabled: true
   className: nginx
   host: kube-quest.local
+
+# Probes — vérifications de santé des pods
+# enabled: false = désactivé (utile pour déboguer)
+# enabled: true  = activé (recommandé en production)
+livenessProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: false
+  initialDelaySeconds: 15
+  periodSeconds: 5
