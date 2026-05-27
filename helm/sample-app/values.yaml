@@ -54,11 +54,11 @@ ingress:
 # enabled: false = désactivé (utile pour déboguer)
 # enabled: true  = activé (recommandé en production)
 livenessProbe:
-  enabled: false
+  enabled: true
   initialDelaySeconds: 30
   periodSeconds: 10
 
 readinessProbe:
-  enabled: false
+  enabled: true
   initialDelaySeconds: 15
   periodSeconds: 5
