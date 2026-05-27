@@ -53,6 +53,12 @@ ingress:
 # Probes — vérifications de santé des pods
 # enabled: false = désactivé (utile pour déboguer)
 # enabled: true  = activé (recommandé en production)
+# Auto-scaling horizontal — Kubernetes ajuste le nombre de pods selon la charge CPU
+hpa:
+  minReplicas: 2      # minimum garanti même sans charge
+  maxReplicas: 5      # maximum autorisé pendant un pic
+  targetCPUUtilizationPercentage: 50  # scale up si CPU > 50% de la request
+
 livenessProbe:
   enabled: true
   initialDelaySeconds: 30
