@@ -54,4 +54,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/badra31/kube-quest-app:latest
+          # Tag = SHA du commit : chaque image est unique et tracable jusqu'au
+          # commit exact, et permet un helm rollback fiable (voir values.yaml).
+          tags: ghcr.io/badra31/kube-quest-app:${{ github.sha }}
