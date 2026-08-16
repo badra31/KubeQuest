@@ -29,6 +29,11 @@ spec:
       # implicite du namespace : evite qu'un futur Role/RoleBinding attribue
       # par erreur au "default" du namespace ne s'applique aussi a ce pod.
       serviceAccountName: {{ .Release.Name }}
+      # fsGroup : les volumes emptyDir ci-dessous (storage, bootstrap-cache,
+      # etc.) sont montes avec le groupe 33 (www-data), pour que les
+      # conteneurs non-root (voir securityContext plus bas) puissent y ecrire.
+      securityContext:
+        fsGroup: 33
       # Répartit les pods sur des noeuds différents pour la haute disponibilité
       affinity:
         podAntiAffinity:
@@ -50,8 +55,41 @@ spec:
         - name: wait-for-db
           image: busybox
           command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-postgresql 5432; do echo "En attente de PostgreSQL..."; sleep 3; done; echo "PostgreSQL est pret."']
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 33
+            runAsGroup: 33
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
 
-        # Étape 2 : lancer les migrations Laravel (crée les 5 tables si elles n'existent pas)
+        # Étape 2 : copier la structure storage/ et bootstrap/cache/ de l'image
+        # (avec les droits www-data deja corrects, voir Dockerfile) vers des
+        # volumes emptyDir ecrivables. Necessaire car readOnlyRootFilesystem
+        # (voir conteneur "app" plus bas) empeche Laravel d'ecrire dans le
+        # filesystem de l'image lui-meme ; sans cette copie, monter un volume
+        # vide directement sur storage/ ecraserait sa structure attendue
+        # (storage/logs, storage/framework/cache, etc.) et ferait planter l'app.
+        - name: init-storage
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['sh', '-c', 'cp -a /var/www/html/storage/. /mnt/storage/ && cp -a /var/www/html/bootstrap/cache/. /mnt/bootstrap-cache/']
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 33
+            runAsGroup: 33
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: storage
+              mountPath: /mnt/storage
+            - name: bootstrap-cache
+              mountPath: /mnt/bootstrap-cache
+
+        # Étape 3 : lancer les migrations Laravel (crée les 5 tables si elles n'existent pas)
         # --force est obligatoire en mode production (Laravel demande confirmation sinon)
         - name: migrate
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -62,6 +100,21 @@ spec:
                 name: {{ .Release.Name }}-config
             - secretRef:
                 name: {{ .Release.Name }}-secret
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 33
+            runAsGroup: 33
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: storage
+              mountPath: /var/www/html/storage
+            - name: bootstrap-cache
+              mountPath: /var/www/html/bootstrap/cache
+            - name: tmp
+              mountPath: /tmp
 
       containers:
         - name: app
@@ -75,6 +128,34 @@ spec:
                 name: {{ .Release.Name }}-config
             - secretRef:
                 name: {{ .Release.Name }}-secret
+
+          # Durci et verifie manuellement (docker run --read-only --cap-drop=ALL
+          # --cap-add=NET_BIND_SERVICE --user 33:33) avant d'etre ecrit ici :
+          # NET_BIND_SERVICE est la seule capability necessaire, pour se lier
+          # au port 80 (<1024) sans etre root.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 33
+            runAsGroup: 33
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+
+          volumeMounts:
+            - name: storage
+              mountPath: /var/www/html/storage
+            - name: bootstrap-cache
+              mountPath: /var/www/html/bootstrap/cache
+            - name: tmp
+              mountPath: /tmp
+            - name: apache-run
+              mountPath: /var/run/apache2
+            - name: apache-lock
+              mountPath: /var/lock/apache2
+            - name: apache-log
+              mountPath: /var/log/apache2
 
           # Les probes sont contrôlées par values.yaml (enabled: true/false)
           # livenessProbe : Kubernetes redémarre le pod si l'app ne répond plus
@@ -107,3 +188,17 @@ spec:
             limits:
               cpu: {{ .Values.resources.limits.cpu }}
               memory: {{ .Values.resources.limits.memory }}
+
+      volumes:
+        - name: storage
+          emptyDir: {}
+        - name: bootstrap-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: apache-run
+          emptyDir: {}
+        - name: apache-lock
+          emptyDir: {}
+        - name: apache-log
+          emptyDir: {}
