@@ -8,6 +8,7 @@ terraform/*.tfvars
 # Variables sensibles
 *.env
 .env
+helm/*/values-secret.yaml
 
 # OS
 .DS_Store

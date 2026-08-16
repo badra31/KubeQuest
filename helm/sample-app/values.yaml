@@ -12,14 +12,18 @@ app:
   name: kube-quest
   env: production
   debug: "false"
-  key: "***REMOVED-APP_KEY***"
+  # app.key et postgresql.auth.password NE SONT PAS ICI : ce fichier est versionné dans Git.
+  # Ces valeurs doivent venir de helm/sample-app/values-secret.yaml (non versionné, voir
+  # values-secret.example.yaml pour le gabarit), fourni au déploiement avec :
+  #   helm upgrade --install sample-app . -f values.yaml -f values-secret.yaml
+  key: ""
   url: "http://kube-quest.local"
 
 # Configuration PostgreSQL
 postgresql:
   auth:
     username: app_user
-    password: ***REMOVED***
+    password: ""
     database: app_database
   primary:
     persistence:
