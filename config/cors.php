@@ -17,13 +17,15 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET'],
 
-    'allowed_origins' => ['*'],
+    // Pas de front-end tiers prevu : seule l'origine de l'appli elle-meme
+    // (APP_URL, configurable par environnement) peut appeler l'API en JS.
+    'allowed_origins' => [env('APP_URL', 'http://localhost')],
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['Content-Type', 'Accept'],
 
     'exposed_headers' => [],
 
