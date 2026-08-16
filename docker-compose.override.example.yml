@@ -1,0 +1,19 @@
+# Gabarit pour docker-compose.override.yml (fichier NON versionné, voir .gitignore).
+#
+# Copier ce fichier en "docker-compose.override.yml" à la racine du projet,
+# remplacer les valeurs ci-dessous. Docker Compose le fusionne automatiquement
+# avec docker-compose.yaml au lancement de "docker compose up" (aucune option
+# supplémentaire nécessaire).
+#
+# Pour générer une nouvelle APP_KEY Laravel valide :
+#   php artisan key:generate --show
+
+services:
+  app:
+    environment:
+      APP_KEY: "REMPLACER_PAR_UNE_VRAIE_APP_KEY_BASE64"
+      DB_PASSWORD: "REMPLACER_PAR_UN_VRAI_MOT_DE_PASSE"
+  db:
+    environment:
+      MYSQL_PASSWORD: "REMPLACER_PAR_UN_VRAI_MOT_DE_PASSE"
+      MYSQL_ROOT_PASSWORD: "REMPLACER_PAR_UN_VRAI_MOT_DE_PASSE_ROOT"
