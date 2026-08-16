@@ -25,6 +25,10 @@ spec:
         app.kubernetes.io/name: {{ .Release.Name }}
         app.kubernetes.io/part-of: kube-quest
     spec:
+      # ServiceAccount dedie (voir serviceaccount.yaml) au lieu du "default"
+      # implicite du namespace : evite qu'un futur Role/RoleBinding attribue
+      # par erreur au "default" du namespace ne s'applique aussi a ce pod.
+      serviceAccountName: {{ .Release.Name }}
       # Répartit les pods sur des noeuds différents pour la haute disponibilité
       affinity:
         podAntiAffinity:
