@@ -1,36 +1,45 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: admin-user
+  name: dashboard-viewer
   namespace: kubernetes-dashboard
   labels:
     app.kubernetes.io/name: kubernetes-dashboard
     app.kubernetes.io/part-of: kube-quest
 ---
+# ClusterRole "view" : role INTEGRE a Kubernetes (pas defini ici), lecture
+# seule sur tous les namespaces. Exclut nativement les Secrets et les objets
+# RBAC (Roles/RoleBindings) — remplace cluster-admin (acces total en
+# lecture/ecriture/suppression sur tout le cluster) par le strict minimum
+# necessaire pour observer l'etat du cluster depuis le dashboard.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: admin-user
+  name: dashboard-viewer
   labels:
     app.kubernetes.io/name: kubernetes-dashboard
     app.kubernetes.io/part-of: kube-quest
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: view
 subjects:
   - kind: ServiceAccount
-    name: admin-user
+    name: dashboard-viewer
     namespace: kubernetes-dashboard
 ---
-# Long-lived token for the dashboard (dev/lab use only)
+# Token du ServiceAccount. Meme reduit a un role en lecture seule, ce token
+# reste long-lived (ne perime jamais) — limite connue, a mentionner en
+# soutenance. Amelioration possible plus tard : generer un token a la demande
+# et expirant avec `kubectl -n kubernetes-dashboard create token dashboard-viewer`
+# (TokenRequest API) plutot qu'un Secret statique.
 apiVersion: v1
 kind: Secret
 metadata:
-  name: admin-user-token
+  name: dashboard-viewer-token
   namespace: kubernetes-dashboard
   annotations:
-    kubernetes.io/service-account.name: admin-user
+    kubernetes.io/service-account.name: dashboard-viewer
   labels:
     app.kubernetes.io/name: kubernetes-dashboard
     app.kubernetes.io/part-of: kube-quest
