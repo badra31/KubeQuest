@@ -191,11 +191,11 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/a
 helm upgrade --install kube-prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace \
-  --set grafana.adminPassword=admin123 \
+  --set grafana.adminPassword=<mot-de-passe-a-choisir> \
   --set prometheus.prometheusSpec.retention=7d
 ```
 
-Accès Grafana : `http://<IP_KUBE_1>:NodePort` — login: `admin` / `admin123`
+Accès Grafana : `http://<IP_KUBE_1>:NodePort` — login: `admin` / le mot de passe choisi ci-dessus (ne pas utiliser de valeur faible comme "admin123", et ne jamais la committer dans ce fichier)
 
 ### Loki (logs)
 
