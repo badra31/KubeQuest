@@ -1,0 +1,45 @@
+# Autorise les pods de l'app (Laravel) a sortir vers deux destinations
+# seulement, tout le reste restant bloque par default-deny-all :
+#
+# 1. PostgreSQL (port 5432/TCP) : necessaire pour les requetes applicatives
+#    et les migrations executees par l'initContainer "migrate".
+# 2. CoreDNS, namespace kube-system (port 53) : sans ca, l'app ne peut meme
+#    pas RESOUDRE le nom "sample-app-postgresql" en adresse IP avant de s'y
+#    connecter -- un piege frequent avec les NetworkPolicy "deny all" oublie
+#    par beaucoup de tutoriels. On autorise tout le namespace kube-system
+#    sur le port 53 plutot qu'un pod CoreDNS precis, car son label exact
+#    (k8s-app: kube-dns) peut varier selon la distribution Kubernetes -- un
+#    choix legerement plus large mais plus robuste, strictement limite au
+#    port DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-egress
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-quest
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: primary
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

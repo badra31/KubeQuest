@@ -1,0 +1,28 @@
+# Autorise le trafic entrant sur les pods de l'app (port 80) UNIQUEMENT
+# depuis le namespace ingress-nginx (le controleur d'ingress qui recoit le
+# trafic externe, voir templates/ingress.yaml). "kubernetes.io/metadata.name"
+# est un label pose automatiquement par Kubernetes (>=1.21) sur chaque
+# namespace avec son propre nom comme valeur -- fiable quelle que soit la
+# methode d'installation d'ingress-nginx (helm --create-namespace ou
+# manifeste manuel), contrairement a un label custom qui pourrait manquer.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-ingress-from-nginx
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-quest
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80

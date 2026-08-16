@@ -1,0 +1,18 @@
+# Politique de base "deny all" : par defaut, AUCUN pod du namespace ne peut
+# ni recevoir (Ingress) ni emettre (Egress) de trafic reseau. Chaque
+# communication legitime doit etre autorisee explicitement par une autre
+# NetworkPolicy (voir networkpolicy-app-egress.yaml,
+# networkpolicy-postgres-ingress.yaml, networkpolicy-ingress-nginx.yaml).
+# podSelector: {} = s'applique a TOUS les pods du namespace, sans exception.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-quest
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
