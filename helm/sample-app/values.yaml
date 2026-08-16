@@ -56,15 +56,19 @@ ingress:
 # Auto-scaling horizontal — Kubernetes ajuste le nombre de pods selon la charge CPU
 hpa:
   minReplicas: 2      # minimum garanti même sans charge
-  maxReplicas: 5      # maximum autorisé pendant un pic
+  maxReplicas: 3      # maximum autorisé pendant un pic (limité par la RAM des t3.small)
   targetCPUUtilizationPercentage: 50  # scale up si CPU > 50% de la request
 
 livenessProbe:
   enabled: true
   initialDelaySeconds: 30
   periodSeconds: 10
+  timeoutSeconds: 5      # délai max pour que l'app réponde à la probe
+  failureThreshold: 3    # nombre d'échecs consécutifs avant de tuer le pod
 
 readinessProbe:
   enabled: true
   initialDelaySeconds: 15
   periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 3
