@@ -80,3 +80,15 @@ readinessProbe:
   periodSeconds: 5
   timeoutSeconds: 5
   failureThreshold: 3
+
+# Sauvegarde PostgreSQL (CronJob pg_dump) — voir templates/backup-cronjob.yaml
+backup:
+  # Format cron standard : tous les jours a 2h du matin (faible trafic)
+  schedule: "0 2 * * *"
+  # Nombre de jours de dumps conserves sur le volume avant purge automatique
+  retentionDays: 7
+  # Taille du volume dedie aux dumps (separe du volume de donnees PostgreSQL)
+  storageSize: 1Gi
+  # Version majeure PostgreSQL du sous-chart Bitnami (Chart.lock), pour
+  # utiliser une image pg_dump compatible
+  image: postgres:18

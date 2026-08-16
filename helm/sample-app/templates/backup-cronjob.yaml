@@ -1,0 +1,81 @@
+# CronJob = version Kubernetes d'une tache cron : lance un Job (pod a usage
+# unique, s'arrete une fois termine) selon l'horaire defini ci-dessous.
+#
+# Commande validee manuellement avec Docker avant d'etre ecrite ici
+# (postgres:18, --user 999:999, --cap-drop=ALL, --read-only) : creation
+# d'une donnee -> pg_dump -> suppression totale -> pg_restore -> donnee
+# bien recuperee. Voir README section Sauvegarde pour la procedure de
+# restauration complete a executer sur le cluster reel.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-backup
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-quest
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  # Empeche deux dumps de tourner en meme temps si le precedent n'est pas
+  # termine (ex. base tres volumineuse un jour donne).
+  concurrencyPolicy: Forbid
+  # Nombre de Jobs Kubernetes conserves dans l'historique (kubectl get jobs)
+  # -- n'affecte PAS le nombre de fichiers de dump conserves sur le volume,
+  # gere separement par retentionDays ci-dessous.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            # Etiquette DIFFERENTE de "app: {{ .Release.Name }}" (utilisee par
+            # le Service et les autres NetworkPolicy) : ce pod ne fait pas
+            # tourner Apache, il ne doit jamais recevoir de trafic web.
+            app.kubernetes.io/name: {{ .Release.Name }}
+            app.kubernetes.io/component: backup
+            app.kubernetes.io/part-of: kube-quest
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 999
+          containers:
+            - name: pg-dump
+              image: {{ .Values.backup.image }}
+              command:
+                - sh
+                - -c
+                - >-
+                  PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_DATABASE"
+                  -F c -f "/backup/backup-$(date +%Y%m%d-%H%M%S).dump" &&
+                  find /backup -name "backup-*.dump" -mtime +{{ .Values.backup.retentionDays }} -delete
+              envFrom:
+                - configMapRef:
+                    name: {{ .Release.Name }}-config
+                - secretRef:
+                    name: {{ .Release.Name }}-secret
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: {{ .Release.Name }}-backup
+            - name: tmp
+              emptyDir: {}

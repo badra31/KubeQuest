@@ -298,3 +298,46 @@ Avant [commit `8217bc8`], `APP_KEY` et les mots de passe de base de données ont
 - Les valeurs ont été retirées des fichiers suivis par Git (commit `8217bc8`).
 - Les anciennes valeurs (`***REMOVED-APP_KEY***`, `***REMOVED***`, `***REMOVED***`) ne doivent **plus jamais être réutilisées**, y compris en local.
 - **Décision assumée** : l'historique Git n'a pas été réécrit (pas de `git filter-repo`/BFG + force-push) pour éviter de casser les clones existants et de perdre en traçabilité pédagogique de l'incident. La protection réelle vient de la rotation des secrets, pas de leur suppression rétroactive de l'historique.
+
+---
+
+## 10. Sauvegarde et restauration PostgreSQL
+
+### Sauvegarde automatique
+
+Un `CronJob` (`helm/sample-app/templates/backup-cronjob.yaml`) exécute `pg_dump` tous les jours à 2h du matin (configurable via `backup.schedule` dans `values.yaml`) et écrit le dump sur un volume dédié (`backup.storageSize`, 1Gi par défaut). Les dumps de plus de `backup.retentionDays` jours (7 par défaut) sont automatiquement supprimés.
+
+**Limite connue, à assumer à l'oral** : le volume de backup utilise le même `StorageClass` `local-path` que le reste du cluster — il reste lié au nœud physique sur lequel il a été créé. Ça protège contre une erreur applicative (migration ratée, `DROP TABLE` accidentel), **pas** contre la perte de la VM elle-même. Une vraie stratégie de production copierait ces dumps vers S3, ce qui nécessiterait un bucket + un rôle IAM non provisionnés actuellement.
+
+### Déclencher une sauvegarde manuellement
+
+```bash
+kubectl create job --from=cronjob/sample-app-backup manual-backup-$(date +%s) -n app
+kubectl logs -n app job/manual-backup-<suffixe> -f
+```
+
+### Lister les sauvegardes disponibles
+
+```bash
+kubectl exec -it -n app deploy/sample-app -- sh -c "ls -la /backup" 2>/dev/null || \
+kubectl run -n app --rm -it backup-browser --image=busybox --overrides='{"spec":{"containers":[{"name":"backup-browser","image":"busybox","command":["ls","-la","/backup"],"volumeMounts":[{"name":"backup","mountPath":"/backup"}]}],"volumes":[{"name":"backup","persistentVolumeClaim":{"claimName":"sample-app-backup"}}]}}'
+```
+
+### Procédure de restauration (testée avec Docker en local, à rejouer sur le cluster)
+
+La commande `pg_restore` ci-dessous a été validée en local (PostgreSQL 18, conteneur Docker) : donnée créée → `pg_dump` → suppression totale de la table → `pg_restore --clean --if-exists` → donnée bien récupérée. Sur le cluster réel :
+
+```bash
+# 1. Copier un dump depuis le volume de backup vers le pod PostgreSQL
+kubectl cp -n app <pod-avec-acces-au-volume-backup>:/backup/backup-XXXXXXXX-XXXXXX.dump ./backup.dump
+kubectl cp -n app ./backup.dump sample-app-postgresql-0:/tmp/backup.dump
+
+# 2. Restaurer (--clean --if-exists : supprime les objets existants avant de les recréer,
+#    évite les conflits si les tables sont déjà présentes)
+kubectl exec -it -n app sample-app-postgresql-0 -- \
+  pg_restore -U app_user -d app_database --clean --if-exists /tmp/backup.dump
+
+# 3. Vérifier que les données sont bien revenues
+kubectl exec -it -n app sample-app-postgresql-0 -- \
+  psql -U app_user -d app_database -c "SELECT * FROM counters;"
+```

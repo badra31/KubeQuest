@@ -1,0 +1,25 @@
+# Volume DEDIE aux dumps, separe du volume de donnees PostgreSQL
+# (postgresql.primary.persistence dans values.yaml). Les garder separes
+# limite les degats si un bug ecrit n'importe quoi sur le volume de donnees :
+# les sauvegardes precedentes restent intactes sur un volume different.
+#
+# Limite connue (a assumer en soutenance) : avec le StorageClass local-path
+# de ce cluster, ce volume reste lie au meme noeud physique que celui sur
+# lequel il a ete cree. Ce n'est pas un vrai backup "hors site" : ca protege
+# contre une erreur applicative (DROP TABLE, migration ratee), pas contre la
+# perte de la VM. Une vraie strategie de production copierait ces dumps vers
+# un stockage objet externe (S3), qui necessiterait un bucket + un role IAM
+# non provisionnes actuellement dans terraform/main.tf.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-backup
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-quest
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.backup.storageSize }}

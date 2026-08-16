@@ -1,9 +1,10 @@
-# Pendant obligatoire de networkpolicy-app-egress.yaml : une regle Egress
-# cote app ne suffit PAS a elle seule, il faut aussi que PostgreSQL accepte
-# l'entree. Cette policy autorise UNIQUEMENT les pods de l'app a entrer sur
-# le port 5432 -- aucune autre source, aucun autre port. Meme un autre pod
-# du meme namespace ne peut pas s'y connecter s'il n'a pas le label
-# "app: {{ .Release.Name }}".
+# Pendant obligatoire de networkpolicy-app-egress.yaml et
+# networkpolicy-backup-egress.yaml : une regle Egress cote client ne suffit
+# PAS a elle seule, il faut aussi que PostgreSQL accepte l'entree. Cette
+# policy autorise UNIQUEMENT deux sources a entrer sur le port 5432 -- les
+# pods de l'app (label "app: {{ .Release.Name }}") et les pods du CronJob de
+# backup (label "app.kubernetes.io/component: backup") -- aucune autre
+# source, aucun autre port.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -24,6 +25,9 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ .Release.Name }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backup
       ports:
         - protocol: TCP
           port: 5432
