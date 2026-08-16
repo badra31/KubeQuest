@@ -4,7 +4,11 @@ replicaCount: 2
 # Image Docker de l'application
 image:
   repository: ghcr.io/badra31/kube-quest-app
-  tag: "latest"
+  # Ne JAMAIS utiliser "latest" en production : le tag doit être le SHA du
+  # commit buildé par la CI (.github/workflows/build.yml), fourni au
+  # déploiement avec --set image.tag=<sha> pour garantir la traçabilité et
+  # un rollback Helm fiable. Ce placeholder échoue volontairement si oublié.
+  tag: "CHANGE_ME_COMMIT_SHA"
   pullPolicy: Always
 
 # Configuration de l'application Laravel
