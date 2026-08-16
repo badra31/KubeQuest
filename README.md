@@ -270,6 +270,31 @@ helm rollback sample-app -n app
 
 ## 8. CI/CD — GitHub Actions
 
-L'image Docker est buildée et poussée automatiquement sur `ghcr.io/badra31/kube-quest-app:latest` à chaque push sur `main`.
+À chaque push sur `main` : les tests PHPUnit sont exécutés, puis l'image Docker est buildée et poussée sur `ghcr.io/badra31/kube-quest-app:<sha-du-commit>` (le build est bloqué si les tests échouent).
 
 Workflow : `.github/workflows/build.yml`
+
+---
+
+## 9. Sécurité — gestion des secrets
+
+### Fourniture des secrets au déploiement
+
+`APP_KEY` (clé de chiffrement Laravel) et le mot de passe PostgreSQL/MySQL **ne sont pas** dans les fichiers versionnés (`values.yaml`, `docker-compose.yaml`). Ils doivent être fournis séparément :
+
+- **Helm** : copier `helm/sample-app/values-secret.example.yaml` en `helm/sample-app/values-secret.yaml` (non versionné), puis :
+  ```bash
+  helm upgrade --install sample-app . -f values.yaml -f values-secret.yaml --set image.tag=<sha-du-commit>
+  ```
+- **Docker Compose** : copier `docker-compose.override.example.yml` en `docker-compose.override.yml` (non versionné) — fusionné automatiquement par `docker compose up`.
+
+Générer une nouvelle `APP_KEY` : `php artisan key:generate --show`.
+
+### Incident connu : secrets versionnés dans l'historique Git
+
+Avant [commit `8217bc8`], `APP_KEY` et les mots de passe de base de données ont été versionnés **en clair** dans `helm/sample-app/values.yaml` et `docker-compose.yaml`. Le dépôt étant public, ces valeurs doivent être considérées comme **définitivement compromises**, même après leur suppression des fichiers actuels.
+
+**Remédiation appliquée** :
+- Les valeurs ont été retirées des fichiers suivis par Git (commit `8217bc8`).
+- Les anciennes valeurs (`base64:DJYTvaRkEZ/YcQsX3TMpB0iCjgme2rhlIOus9A1hnj4=`, `app_password`, `app_root_password`) ne doivent **plus jamais être réutilisées**, y compris en local.
+- **Décision assumée** : l'historique Git n'a pas été réécrit (pas de `git filter-repo`/BFG + force-push) pour éviter de casser les clones existants et de perdre en traçabilité pédagogique de l'incident. La protection réelle vient de la rotation des secrets, pas de leur suppression rétroactive de l'historique.
