@@ -290,14 +290,14 @@ Workflow : `.github/workflows/build.yml`
 
 Générer une nouvelle `APP_KEY` : `php artisan key:generate --show`.
 
-### Incident connu : secrets versionnés dans l'historique Git
+### Incident connu : secrets versionnés dans l'historique Git (résolu)
 
-Avant [commit `8217bc8`], `APP_KEY` et les mots de passe de base de données ont été versionnés **en clair** dans `helm/sample-app/values.yaml` et `docker-compose.yaml`. Le dépôt étant public, ces valeurs doivent être considérées comme **définitivement compromises**, même après leur suppression des fichiers actuels.
+Dans les tout premiers commits du projet, un mot de passe de base de données et une clé d'application (`APP_KEY`) Laravel avaient été versionnés **en clair** dans `helm/sample-app/values.yaml` et `docker-compose.yaml`. Le dépôt étant public, l'incident a été traité en trois temps :
 
-**Remédiation appliquée** :
-- Les valeurs ont été retirées des fichiers suivis par Git (commit `8217bc8`).
-- Les anciennes valeurs (`***REMOVED-APP_KEY***`, `***REMOVED***`, `***REMOVED***`) ne doivent **plus jamais être réutilisées**, y compris en local.
-- **Décision assumée** : l'historique Git n'a pas été réécrit (pas de `git filter-repo`/BFG + force-push) pour éviter de casser les clones existants et de perdre en traçabilité pédagogique de l'incident. La protection réelle vient de la rotation des secrets, pas de leur suppression rétroactive de l'historique.
+1. **Détection** : repérée lors d'un audit de sécurité du dépôt, avant un push.
+2. **Retrait des fichiers versionnés** : les valeurs ont été retirées des fichiers suivis par Git et remplacées par des placeholders vides, fournis désormais uniquement via des fichiers non versionnés (voir "Fourniture des secrets au déploiement" ci-dessus).
+3. **Rotation des secrets** : une nouvelle `APP_KEY` et de nouveaux mots de passe ont été générés — les anciennes valeurs ne sont plus utilisées nulle part, y compris en local.
+4. **Purge de l'historique Git** : l'historique complet du dépôt a été réécrit avec BFG Repo-Cleaner pour retirer les anciennes valeurs de tous les commits passés, suivi d'un `push --force`. Toute personne ayant cloné le dépôt avant cette purge doit re-cloner entièrement (un `git pull` échoue sur un historique réécrit).
 
 ---
 
