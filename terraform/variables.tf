@@ -22,9 +22,12 @@ variable "instance_type_kube" {
 }
 
 variable "instance_type_small" {
-  description = "Instance type for ingress and monitoring (t2.micro = free tier)"
+  # t2.micro (1 processeur) etait trop juste une fois ces VMs integrees
+  # au cluster comme vrais noeuds — "ingress" devenait instable en pratique.
+  # Meme taille que kube-1/kube-2 desormais.
+  description = "Type d'instance pour ingress et monitoring (t3.small, ce sont de vrais noeuds du cluster)"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.small"
 }
 
 variable "project_name" {
