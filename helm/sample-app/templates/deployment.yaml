@@ -74,7 +74,13 @@ spec:
         - name: init-storage
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ['sh', '-c', 'cp -a /var/www/html/storage/. /mnt/storage/ && cp -a /var/www/html/bootstrap/cache/. /mnt/bootstrap-cache/']
+          # cp -r (pas -a) : -a tente aussi de preserver les dates du DOSSIER de
+          # destination lui-meme, ce que le securityContext durci ci-dessous
+          # interdit desormais (capabilities Linux retirees) -- observe en
+          # pratique : "cp: preserving times for '/mnt/storage/.': Operation
+          # not permitted". -r suffit, on n'a jamais eu besoin de preserver
+          # les dates d'origine pour initialiser un volume vide.
+          command: ['sh', '-c', 'cp -r /var/www/html/storage/. /mnt/storage/ && cp -r /var/www/html/bootstrap/cache/. /mnt/bootstrap-cache/']
           securityContext:
             runAsNonRoot: true
             runAsUser: 33
