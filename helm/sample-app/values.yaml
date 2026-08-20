@@ -37,6 +37,14 @@ postgresql:
       readOnlyRootFilesystem: false
     podSecurityContext:
       fsGroup: 1001
+    # Le sous-chart Bitnami cree sa PROPRE NetworkPolicy par defaut
+    # (allowExternal: true = accepte les connexions depuis N'IMPORTE QUELLE
+    # source vers le port Postgres). Les NetworkPolicy Kubernetes sont
+    # additives : cette regle permissive annulait silencieusement notre
+    # restriction stricte (networkpolicy-postgres-ingress.yaml, app+backup
+    # uniquement). On la desactive pour ne garder que la notre.
+    networkPolicy:
+      enabled: false
 
 # Limites de ressources — bonne pratique Kubernetes obligatoire
 resources:
