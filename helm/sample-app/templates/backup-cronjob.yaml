@@ -41,13 +41,46 @@ spec:
           containers:
             - name: pg-dump
               image: {{ .Values.backup.image }}
+              # bash (pas sh) : necessaire pour "set -o pipefail", non supporte
+              # par le sh minimal (dash) de cette image Debian.
               command:
-                - sh
+                - bash
                 - -c
-                - >-
-                  PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_DATABASE"
-                  -F c -f "/backup/backup-$(date +%Y%m%d-%H%M%S).dump" &&
+                - |
+                  set -euo pipefail
+                  TS=$(date +%Y%m%d-%H%M%S)
+                  TMPFILE="/backup/.backup-${TS}.dump.tmp"
+                  FINALFILE="/backup/backup-${TS}.dump"
+                  echo "Debut du dump PostgreSQL vers $TMPFILE"
+
+                  if ! PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_DATABASE" -F c -f "$TMPFILE"; then
+                    echo "ERREUR : pg_dump a echoue (code de sortie non nul)" >&2
+                    rm -f "$TMPFILE"
+                    exit 1
+                  fi
+
+                  if [ ! -s "$TMPFILE" ]; then
+                    echo "ERREUR : le dump est vide (0 octet), suppression : $TMPFILE" >&2
+                    rm -f "$TMPFILE"
+                    exit 1
+                  fi
+
+                  # Un fichier non vide n'est pas forcement une archive valide
+                  # (ecriture interrompue, pod tue en cours de dump...).
+                  # pg_restore --list lit la table des matieres de l'archive
+                  # sans rien restaurer ; si l'archive est corrompue, ca echoue.
+                  if ! pg_restore --list "$TMPFILE" > /dev/null 2>&1; then
+                    echo "ERREUR : archive invalide, echec de pg_restore --list, suppression : $TMPFILE" >&2
+                    rm -f "$TMPFILE"
+                    exit 1
+                  fi
+
+                  # Renomme seulement APRES validation complete : un fichier
+                  # invalide n'apparait jamais sous le nom final backup-*.dump.
+                  mv "$TMPFILE" "$FINALFILE"
+                  echo "Dump reussi et valide : $FINALFILE ($(du -h "$FINALFILE" | cut -f1))"
                   find /backup -name "backup-*.dump" -mtime +{{ .Values.backup.retentionDays }} -delete
+                  echo "Nettoyage des dumps de plus de {{ .Values.backup.retentionDays }} jours termine"
               envFrom:
                 - configMapRef:
                     name: {{ .Release.Name }}-config
